@@ -1,5 +1,5 @@
 import { useAppStore } from "@/store";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoArrowBack } from "react-icons/io5";
 import { FaTrash, FaPlus } from "react-icons/fa";
@@ -7,6 +7,9 @@ import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { colors, getColor } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import apiClient from "@/lib/api-client";
+import { UPDATE_PROFILE } from "@/utils/constants";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -17,13 +20,59 @@ const Profile = () => {
   const [hover, setHover] = useState(false);
   const [selectedColor, setSelectedColor] = useState(0);
 
-  const saveChanges = async () => {};
+  useEffect(()=>{
+    if(userInfo.profileSetup){
+      setFirstName(userInfo.firstName);
+      setLastName(userInfo.lastName);
+      setSelectedColor(userInfo.color);
+    }
+  },[userInfo])
+
+  const validateProfile = () => {
+    if (!firstName) {
+      toast.error("First Name is required!");
+      return false;
+    }
+    if (!lastName) {
+      toast.error("Last Name is required!");
+      return false;
+    }
+    return true;
+  };
+
+  const saveChanges = async () => {
+    if (validateProfile()) {
+      try {
+        const response = await apiClient.post(
+          UPDATE_PROFILE,
+          { firstName, lastName, color: selectedColor },
+          { withCredentials: true }
+        );
+        if (response.status === 200 && response.data) {
+          setUserInfo({ ...response.data });
+          toast.success("Profile updated successfully!");
+          navigate("/chat");
+        }
+      } catch (error) {
+        console.log(error.message);
+      }
+    }
+  };
+  
+  const handleBackButton = () => {
+    if(userInfo.profileSetup){
+      navigate("/chat");
+    }else{
+      toast.error("Please setup your profile first!")
+    }
+  }
 
   return (
-    <div className="bg-[#1b1c24] h-[100vh] flex flex-col items-center justify-center gap-10">
-      <div className="flex flex-col gap-10 w-[80vw] md:w-max">
-        <div>
-          <IoArrowBack className="text-4xl lg:text-6xl text-white/90 cursor-pointer" />
+    <div className="h-[100vh] flex flex-col items-center justify-center gap-10">
+      <div className="flex flex-col gap-10 w-[90vw] md:w-max bg-white border-2 border-white shadow-2xl rounded-3xl p-10">
+        <div className="flex items-center">
+          <IoArrowBack onClick={handleBackButton} className="text-xl text-black/90 cursor-pointer" />
+          <p className="text-xl font-semibold mx-2">Profile Update</p>
         </div>
         <div className="grid grid-cols-2 ">
           <div
@@ -51,7 +100,7 @@ const Profile = () => {
               )}
             </Avatar>
             {hover && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/75 ring-fuchsia-50 rounded-full">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 ring-fuchsia-50 rounded-full">
                 {image ? (
                   <FaTrash className="text-3xl text-white cursor-pointer" />
                 ) : (
@@ -61,14 +110,14 @@ const Profile = () => {
             )}
             {/* <input type="text" /> */}
           </div>
-          <div className="flex min-w-32 md:min-w-64 flex-col gap-5 text-white items-center justify-center">
+          <div className="flex min-w-32 md:min-w-64 flex-col gap-5 text-black items-center justify-center">
             <div className="w-full">
               <Input
                 placeholder="Email"
                 type="email"
                 disabled
                 value={userInfo.email}
-                className="rounded-lg p-6 bg-[#2c2e3b] border-none"
+                className="rounded-lg p-5 md:p-6 border-2 hover:outline-none"
               />
             </div>
             <div className="w-full">
@@ -77,7 +126,7 @@ const Profile = () => {
                 type="text"
                 onChange={(e) => setFirstName(e.target.value)}
                 value={firstName}
-                className="rounded-lg p-6 bg-[#2c2e3b] border-none"
+                className="rounded-lg p-5 md:p-6 border-2 hover:outline-none"
               />
             </div>
             <div className="w-full">
@@ -86,24 +135,29 @@ const Profile = () => {
                 type="text"
                 onChange={(e) => setLastName(e.target.value)}
                 value={lastName}
-                className="rounded-lg p-6 bg-[#2c2e3b] border-none"
+                className="rounded-lg p-5 md:p-6 border-2 hover:outline-none"
               />
             </div>
             <div className="w-full flex gap-5">
               {colors.map((color, index) => (
                 <div
-                  className={`${color} h-8 w-8 rounded-full cursor-pointer transition-all duration-50 ${
-                    selectedColor === index ? "outline-2 outline-white/90" : ""
+                  className={`${color} h-6 w-6 md:h-8 md:w-8 rounded-full cursor-pointer transition-all duration-50 ${
+                    selectedColor === index ? "outline-2 outline-black/25" : ""
                   }`}
                   key={index}
-                  onClick={()=>setSelectedColor(index)}
+                  onClick={() => setSelectedColor(index)}
                 ></div>
               ))}
             </div>
           </div>
         </div>
         <div className="w-full">
-          <Button className="h-16 w-full bg-purple-700 hover:bg-purple-900 transition-all duration-300 cursor-pointer" onClick={saveChanges}>Save Changes</Button>
+          <Button
+            className="h-12 md:h-16 w-full bg-black transition-all duration-300 cursor-pointer"
+            onClick={saveChanges}
+          >
+            Save Changes
+          </Button>
         </div>
       </div>
     </div>
