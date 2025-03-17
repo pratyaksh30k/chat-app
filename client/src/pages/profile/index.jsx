@@ -1,5 +1,5 @@
 import { useAppStore } from "@/store";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoArrowBack } from "react-icons/io5";
 import { FaTrash, FaPlus } from "react-icons/fa";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import apiClient from "@/lib/api-client";
-import { UPDATE_PROFILE } from "@/utils/constants";
+import { ADD_PROFILE_IMAGE, HOST, REMOVE_PROFILE_IMAGE, UPDATE_PROFILE } from "@/utils/constants";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -20,13 +20,18 @@ const Profile = () => {
   const [hover, setHover] = useState(false);
   const [selectedColor, setSelectedColor] = useState(0);
 
-  useEffect(()=>{
-    if(userInfo.profileSetup){
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (userInfo.profileSetup) {
       setFirstName(userInfo.firstName);
       setLastName(userInfo.lastName);
       setSelectedColor(userInfo.color);
     }
-  },[userInfo])
+    if(userInfo.image){
+    setImage(`${HOST}/${userInfo.image}`);
+    }
+  }, [userInfo]);
 
   const validateProfile = () => {
     if (!firstName) {
@@ -58,20 +63,56 @@ const Profile = () => {
       }
     }
   };
-  
+
   const handleBackButton = () => {
-    if(userInfo.profileSetup){
+    if (userInfo.profileSetup) {
       navigate("/chat");
-    }else{
-      toast.error("Please setup your profile first!")
+    } else {
+      toast.error("Please setup your profile first!");
     }
-  }
+  };
+
+  const handleFileInputClick = () => {
+    fileInputRef.current.click();
+  };
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const formData = new FormData();
+      formData.append("profileImage", file);
+      const response = await apiClient.post(ADD_PROFILE_IMAGE, formData, {
+        withCredentials: true,
+      });
+      console.log(response);
+      if (response.status === 200 && response.data.image) {
+        setUserInfo({ ...userInfo, image: response.data.image });
+        toast.success("Image uploaded successfully!");
+      }
+    }
+  };
+
+  const handleDeleteImage = async () => {
+    try {
+      const response = await apiClient.delete(REMOVE_PROFILE_IMAGE,{withCredentials: true});
+      if(response.status === 200){
+        setUserInfo({ ...userInfo, image: null });
+        toast.success("Profile image removed successfully!");
+        setImage(null);
+      }
+    } catch (error) {
+      console.log(error.message);
+    }
+  };
 
   return (
     <div className="h-[100vh] flex flex-col items-center justify-center gap-10">
       <div className="flex flex-col gap-10 w-[90vw] md:w-max bg-white border-2 border-white shadow-2xl rounded-3xl p-10">
         <div className="flex items-center">
-          <IoArrowBack onClick={handleBackButton} className="text-xl text-black/90 cursor-pointer" />
+          <IoArrowBack
+            onClick={handleBackButton}
+            className="text-xl text-black/90 cursor-pointer"
+          />
           <p className="text-xl font-semibold mx-2">Profile Update</p>
         </div>
         <div className="grid grid-cols-2 ">
@@ -100,7 +141,10 @@ const Profile = () => {
               )}
             </Avatar>
             {hover && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50 ring-fuchsia-50 rounded-full">
+              <div
+                onClick={image ? handleDeleteImage : handleFileInputClick}
+                className="absolute inset-0 flex items-center justify-center bg-black/50 ring-fuchsia-50 rounded-full"
+              >
                 {image ? (
                   <FaTrash className="text-3xl text-white cursor-pointer" />
                 ) : (
@@ -108,7 +152,14 @@ const Profile = () => {
                 )}
               </div>
             )}
-            {/* <input type="text" /> */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleImageChange}
+              name="profileImage"
+              accept="image/*"
+            />
           </div>
           <div className="flex min-w-32 md:min-w-64 flex-col gap-5 text-black items-center justify-center">
             <div className="w-full">
