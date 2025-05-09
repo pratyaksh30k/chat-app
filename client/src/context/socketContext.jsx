@@ -7,24 +7,40 @@ const socketContext = createContext(null);
 
 export const useSocket = () => {
   return useContext(socketContext);
-}
+};
 
 export const SocketProvider = ({ children }) => {
   const socket = useRef();
-  const {userInfo} = useAppStore();
+  const { userInfo } = useAppStore();
 
   useEffect(() => {
-    if(userInfo){
-      socket.current = io(HOST,{
+    if (userInfo) {
+      socket.current = io(HOST, {
         withCredentials: true,
-        query: { userId: userInfo.id }
+        query: { userId: userInfo.id },
       });
-      socket.current.on("connect",()=>{
+      socket.current.on("connect", () => {
         console.log("Connected to socket server");
       });
+
+      const handleReceiveMessage = (message) => {
+        const { selectedChatData, selectedChatType, addMessage } =
+          useAppStore.getState();
+        console.log({ selectedChatData, selectedChatType });
+        if (
+          selectedChatType !== undefined &&
+          (selectedChatData._id === message.sender._id ||
+            selectedChatData._id === message.recipient._id)
+        ) {
+          addMessage(message);
+        }
+      };
+
+      socket.current.on("receiveMessage", handleReceiveMessage);
+
       return () => {
         socket.current.disconnect();
-      }
+      };
     }
   }, [userInfo]);
 
@@ -33,4 +49,4 @@ export const SocketProvider = ({ children }) => {
       {children}
     </socketContext.Provider>
   );
-}
+};
