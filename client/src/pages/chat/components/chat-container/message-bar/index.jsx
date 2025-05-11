@@ -1,5 +1,7 @@
 import { useSocket } from "@/context/socketContext";
+import apiClient from "@/lib/api-client";
 import { useAppStore } from "@/store";
+import { UPLOAD_FILE_ROUTE } from "@/utils/constants";
 import EmojiPicker from "emoji-picker-react";
 import { useEffect, useRef, useState } from "react";
 import { GrAttachment } from "react-icons/gr";
@@ -8,11 +10,12 @@ import { RiEmojiStickerLine } from "react-icons/ri";
 
 const MessageBar = () => {
   const emojiRef = useRef();
+  const fileInputRef = useRef();
   const socket = useSocket();
   const [message, setMessage] = useState("");
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
 
-  const {selectedChatData,selectedChatType,userInfo} = useAppStore();
+  const { selectedChatData, selectedChatType, userInfo } = useAppStore();
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -36,14 +39,45 @@ const MessageBar = () => {
   };
 
   const handleSendMessage = async () => {
-    if(selectedChatType==="contact"){
-      socket.emit("sendMessage",{
-        sender:userInfo.id,
-        content:message,
-        recipient:selectedChatData._id,
-        messageType:"text",
-        fileUrl:undefined
-      })
+    if (selectedChatType === "contact") {
+      socket.emit("sendMessage", {
+        sender: userInfo.id,
+        content: message,
+        recipient: selectedChatData._id,
+        messageType: "text",
+        fileUrl: undefined,
+      });
+    }
+  };
+
+  const handleAttachmentClick = () => {
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleAttachmentChange = async (event) => {
+    try {
+      const file = event.target.files[0];
+      if (file) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await apiClient.post(UPLOAD_FILE_ROUTE, formData, {
+          withCredentials: true,
+        });
+        if (response.status === 200 && response.data) {
+          if (selectedChatType === "contact") {
+            socket.emit("sendMessage", {
+              sender: userInfo.id,
+              content: undefined,
+              recipient: selectedChatData._id,
+              messageType: "file",
+              fileUrl: response.data.filePath,
+            });
+          }
+        }
+      }
+      console.log(file);
+    } catch (error) {
+      console.log(error);
     }
   };
 
@@ -57,7 +91,10 @@ const MessageBar = () => {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         />
-        <button className="text-[#9E9E9E] focus:outline-none focus:border-none hover:text-[#212121] duration-300 transition-all cursor-pointer">
+        <button
+          onClick={handleAttachmentClick}
+          className="text-[#9E9E9E] focus:outline-none focus:border-none hover:text-[#212121] duration-300 transition-all cursor-pointer"
+        >
           <GrAttachment className="text-xl" />
         </button>
         <div className="relative flex items-center">
@@ -67,6 +104,12 @@ const MessageBar = () => {
           >
             <RiEmojiStickerLine className="text-xl" />
           </button>
+          <input
+            type="file"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handleAttachmentChange}
+          />
           <div className="absolute bottom-16 right-0" ref={emojiRef}>
             <EmojiPicker
               open={emojiPickerOpen}
